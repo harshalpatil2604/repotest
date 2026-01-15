@@ -1,0 +1,91 @@
+Prompt.
+
+I want to build a **production-grade, configurable ETL framework in Python**, **Docker-ready**, with the following specifications:
+
+1. **Sources / Inputs:**
+   - Files from **S3** (possibly zipped) and **local file system**.
+   - **Databases**: Aurora/Postgres, SQL Server.
+   - Files can be:
+       - Fixed-width
+       - Delimited (with quotes)
+       - GB+ in size (framework must support chunked reads / scalable)
+   - Ability to read tables from databases with optional SQL transformations.
+
+2. **ETL Job Structure:**
+   - Each file or table should be treated as a **single job**.
+   - Jobs can have **different cadence** (daily, weekly, etc.).
+   - **Audit, Balance, and Control (ABC)**:
+       - Track job start, success, failure, duration, errors.
+       - **Track if a job is a retry** and mark it in audit tables.
+   - **Logging**:
+       - Extensive, per job.
+       - Log file created per job with timestamp in **local logs folder** if running locally.
+       - Optionally log to **AWS CloudWatch** if running in production.
+       - Capture **step name**, **file/table context**, **error messages**, **stack trace**.
+
+3. **Data Quality:**
+   - Integrate **Great Expectations (GE)** to validate data before loading.
+   - Support **custom SQL checkpoints** in addition to standard GE expectations:
+       - Users can provide SQL queries to validate business rules or custom checks.
+       - SQL query results determine pass/fail of the checkpoint.
+   - Capture validation failures in logs and notifications.
+
+4. **Transformations:**
+   - Use **SQL files with Jinja templates** for table-to-table transformations.
+   - Context-aware rendering (audit info, previous runs, etc.).
+
+5. **Loading:**
+   - Load into **Postgres/Aurora**.
+   - Support **chunked loading** for GB+ data.
+   - Archive processed files to a **processed folder** after successful ingestion.
+
+6. **Secret Management:**
+   - Externalize DB credentials.
+   - Support **local testing** via file-based secrets.
+   - Support **AWS Secrets Manager** in production.
+   - DB configs should be in YAML (db_config.yaml) and reference secret keys.
+
+7. **Notification System:**
+   - Supports **Slack, Teams, Email**.
+   - Rich **HTML notifications** including stack traces, metrics, images.
+   - Include reason for any failure, step name, and file/table processed.
+
+8. **Error Handling:**
+   - Capture **failure reason** for each step.
+   - Include file/table context.
+   - Include full **stack trace** in logs and notifications.
+   - Step tracking via decorator or similar method.
+
+9. **Framework Design:**
+   - Modular structure: **ingestion, parsing, loading, transform, audit, quality, notification, config, logging, jobs, sql**.
+   - Source Factory pattern for multiple sources (S3, local, DB, SQL Server).
+   - Fluent and extensible design for adding new sources or sinks.
+   - Logging should support **AWS CloudWatch or local file** based on environment.
+
+10. **Job Execution:**
+    - Single `main.py` that orchestrates jobs based on YAML config.
+    - Configurable for ingestion or transformation.
+    - Automatic logging, auditing, notifications for success/failure.
+    - **Retry handling**: If a job is retried, mark it as a retry in the audit tables.
+    - Support running **custom SQL checkpoints** before or after loading, in addition to standard GE expectations.
+
+11. **Docker Support:**
+    - Framework should be **fully containerized**.
+    - Include a **Dockerfile** with all dependencies.
+    - Environment variables or mounted secrets/config should configure DB connections, logging type (local or CloudWatch), and notification endpoints.
+    - Framework should run jobs using `docker run` with minimal setup.
+
+12. **Other Requirements:**
+    - No `print()` statements; all output goes to logs and notifications.
+    - Use chunked processing for memory efficiency.
+    - Jobs are fully configurable via YAML.
+    - Include example jobs and SQL templates.
+    - Logging per job with timestamp.
+    - Secret management integrated.
+    - Notifications integrated.
+    - Great Expectations integrated.
+    - Jinja support for SQL.
+    - File archiving implemented.
+    - Chunked reading for GB+ files.
+    - Ready to zip and deploy.
+    - Optional: Embed charts or metrics in notifications.
