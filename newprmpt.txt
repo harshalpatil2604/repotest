@@ -1,1 +1,54 @@
+Generate a production-ready Python ETL framework with the following features:
 
+1. Architecture & Modules:
+   - Interface-based Readers, Writers, Transformers, Validators, Notifiers
+   - Engines: Glue-Spark and local Spark, selectable per job
+   - Each job has a job plan (YAML/JSON) specifying: sources, targets, transformer class, pre/post checks, notifications, and environment config
+   - Transformers implement pre_check, transform, post_check methods
+   - Capture ABC metrics: rows read, loaded, rejected, QC/GE results, runtime, errors
+   - Support lineage tracking
+   - Centralized logging for all stages
+
+2. Sources & Targets:
+   - Sources: CSV, fixed-width files, DB tables (Postgres, Snowflake)
+   - Transformer can have one driver source + multiple supporting sources
+   - Targets: DB tables or files
+   - Include file parser and validator for structured files
+   - Dynamic column mapping from config
+
+3. Quality Checks:
+   - Integrate Great Expectations for post-checks
+   - Job plan defines expectation suites
+   - Record GE results in ABC system
+   - Optional pre-checks: nulls, required columns, type checks
+
+4. Notifications:
+   - Email, Teams, Slack via interface-based notifiers
+   - Triggered on success, failure, or QC failure
+
+5. Environment Config:
+   - Support dev, QA, prod configs
+   - JobRunner dynamically loads environment-specific config
+   - Secrets via env variables or vault
+
+6. CLI Execution:
+   - Command-line arguments: --env, --job, --stages
+   - Stages: pre_check, transform, post_check, qc, all
+   - Dry-run mode for validation without writing output
+   - Parallel execution support for stress testing
+
+7. Job Output & Tracking:
+   - Track job metadata: input, output, status, errors, ABC metrics
+   - Store read, loaded, rejected, GE/QC results
+
+8. Deliverables:
+   - Python ETL framework skeleton with core/, jobs/, config/, utils/, notifications/
+   - Example job implementing pre_check → transform → post_check → GE validation → write → ABC metrics → notifications
+   - Environment-specific job plan examples (YAML/JSON)
+   - CLI runner script
+
+Constraints:
+- Highly scalable, maintainable, and config-driven
+- Error handling, logging, notifications integrated
+- Supports both file-based and DB-based sources
+Sent from my iPhone
