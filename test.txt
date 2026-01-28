@@ -1,0 +1,140 @@
+You are a senior software architect and Medicare Part D domain expert. Generate a **production-ready blueprint and partial implementation** for a Spring Boot + Drools engine for Medicare Part D drug pricing. The system must be scalable, traceable, auditable, follow **SOLID principles**, fully **unit-testable**, and support **rule metadata management** with **fail-closed behavior**.
+
+Requirements:
+
+1. **Request Handling & Traceability**
+   - Every request must have a **traceId** for full request lifecycle tracking.
+   - A **Payload object** should be constructed for each request, including:
+     - Member info
+     - Plan info
+     - Pharmacy info
+     - SSC, LIS, UM, Coverage, Pricing details
+     - List of **Dosage** objects (each representing a drug, quantity, metric, supply days)
+     - Execution metadata (current step, rules fired, timestamps)
+     - Failure state and **reason enum** if execution fails at any step
+   - Payload must be **updated after each rule execution step**.
+   - After processing, the final payload is **persisted to Aurora** for auditing and replay.
+
+2. **Backend Integration**
+   - Use **Amazon Aurora (PostgreSQL/MySQL compatible)**.
+   - All POJOs (Member, Plan, Pharmacy, Dosage, Coverage, LIS, PricingContext, etc.) are populated via **stored procedures**.
+   - Include example **Spring JDBC / JPA code** showing how to call stored procedures and map results to POJOs.
+
+3. **Drools Rules**
+   - Use **ruleflow groups** to enforce execution order:
+     - SSC Validation → Plan Validation → Pharmacy Network → Coverage → LIS → UM → **Pricing Calculation**
+   - Each step can have multiple rules.
+   - Include **rules for 3 consecutive years (2024, 2025, 2026)**.
+   - Each rule must include **annotations** like `@cmsYear` and `@ruleVersion`.
+   - Rules must **mutate the Payload object**, update step, mark rule fired, and track metadata for auditing.
+   - Rules should operate **per Dosage** fact rather than DrugLine.
+
+4. **Pricing Calculation Specifics**
+   - Include an **execution-order accumulator step** for the Pricing Calculation.
+   - Compute **monthly breakdown** by coverage phase:
+     - Deductible
+     - Initial Coverage
+     - Coverage Gap
+     - Out-of-Pocket (OOP)
+   - Compute **TAEC (Total Annual Estimated Cost)** per request.
+   - Accumulate phase costs in the **PricingContext** within Payload.
+   - Update **memberCost, planCost, and TAEC** per Dosage as rules fire.
+   - Track **rule version executed per request** for replay and auditing.
+
+5. **Fail-Closed Behavior**
+   - If **any step in execution order fails**, the request must **fail closed**:
+     - No partial response should be returned.
+     - The Payload should capture **failure state**.
+     - Include a **reason enum** explaining failure:
+       - SSC_VALIDATION_FAILED
+       - PLAN_VALIDATION_FAILED
+       - PHARMACY_NETWORK_FAILED
+       - COVERAGE_FAILED
+       - LIS_FAILED
+       - UM_FAILED
+       - PRICING_CALCULATION_FAILED
+     - TraceId, rule versions, and step metadata must still be persisted for audit and replay.
+
+6. **Rule Metadata Management**
+   - All DRL rules present in the rules folder must be **reconciled** with a **Rule Metadata table** in Aurora.
+   - Metadata table must track:
+     - `ruleName`
+     - `ruleVersion`
+     - `cmsYear`
+     - `activeStatus` (boolean)
+     - `lastUpdatedTimestamp`
+     - Optional: `description`
+   - Include example **Spring code** to:
+     - Scan DRL folders
+     - Detect new/updated rules
+     - Insert/update metadata in DB
+   - Ensures **all rules are versioned, tracked, and auditable**.
+
+7. **Stateless Execution**
+   - Use **StatelessKieSession** per request.
+   - Each request inserts **all Dosage objects as facts**.
+   - Reference data (plans, formularies, pharmacies) should be preloaded in memory to avoid DB calls in rules.
+
+8. **Audit & Reproducibility**
+   - Each request logs:
+     - TraceId
+     - Rule versions executed
+     - Step-by-step execution results
+     - Monthly breakdown per phase
+     - TAEC
+     - Failure state (if any)
+   - Store the final payload in Aurora for **replay or audit**.
+
+9. **Spring Boot Integration & Code Quality**
+   - Code must follow **SOLID principles**:
+     - Separate concerns for services, rules execution, payload handling, and persistence.
+     - Easy to extend for new rules, phases, or plan types.
+   - Code must be fully **unit-testable**:
+     - Provide example **JUnit / Mockito tests** for each use case.
+     - Include test cases for:
+       - SSC validation failure
+       - Plan validation failure
+       - Pharmacy network failure
+       - Coverage, LIS, UM failure
+       - Pricing calculation success with TAEC and monthly breakdown
+       - Fail-closed propagation and reason enum
+       - Rule metadata reconciliation
+   - Provide a REST endpoint `/price-dosages` that:
+     - Receives the request
+     - Calls stored procedures to populate POJOs
+     - Constructs Payload with traceId
+     - Executes Drools rules in execution order
+     - Updates Payload after each step, including Pricing Calculation accumulator
+     - Handles **fail-closed logic** if any step fails
+     - Persists final payload in Aurora
+     - Returns either **complete pricing results** or **failure with reason enum**
+
+10. **AWS Fargate Deployment**
+    - Use **ECS Task Definition** for the Spring Boot + Drools container.
+    - Rules can be loaded from **EFS volume mount** or included in Docker image.
+    - ECS Service should scale horizontally based on CPU or request load.
+    - Ensure **stateless execution** for multi-dosage, concurrent requests.
+    - Include logging and metrics via **CloudWatch** for rule firing, payload audit, and rule metadata reconciliation.
+
+11. **Performance & Scaling**
+    - System must handle **3,000+ requests/hour**, each with multiple Dosage objects.
+    - Stateless sessions + multiple concurrent Fargate tasks.
+    - Preloaded reference data for rules.
+    - Minimal DB calls during execution; only to **fetch POJOs**, persist final payload, and update rule metadata.
+
+12. **Deliverables**
+    - Folder structure for DRL rules (2024, 2025, 2026).
+    - Example DRL rules with versioning, ruleflow groups, Pricing Calculation accumulator for monthly breakdown & TAEC.
+    - Spring Boot service skeleton with:
+      - Stored procedure calls
+      - Payload & Dosage objects
+      - Drools execution
+      - Fail-closed handling with reason enum
+      - Audit persistence
+      - Rule metadata reconciliation
+    - Unit-testable code with example **JUnit / Mockito use cases** for every major execution flow
+    - ECS Task Definition and Service configuration for Fargate
+    - Optional: C4 diagrams (Context, Container, Component, Code) with traceId flow.
+
+Output should be **ready-to-use for a team to implement**, with comments explaining **rule logic, execution order, monthly phase breakdown, TAEC computation, traceability, fail-closed handling, SOLID principles, unit-testable design, rule metadata persistence, scaling rationale, and CMS compliance**.
+Sent from my iPhone
